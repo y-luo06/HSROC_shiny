@@ -141,11 +141,12 @@ ui <- fluidPage(
                      p("*The ", span("sensitivity or specificity parameter", style = "color:steelblue;font-style:italic"), 
                        " can be selected based on the clinical experience or previous studies. For example, it can be the 
                        average value of the studies included in the meta-analysis.", style = "color:gray"),
-                     p("**The model used in this calculator was built in RStan. The code can be found at:", 
-                       span(" http://github.com/XXXXXX.", style = "color:lightseagreen;font-style:italic"), 
-                       "Due to the model characteristics, the input parameter is allowed only from 0.6 to 1.0.", style = "color:gray"),
-                     p("***We provide the details about the MCMC methods. You can check the trace plot 
-                       and Rhat value to confirm that convergence has been reached.", style = "color:gray")
+                     p("**We provide the details about the MCMC methods. You should check if convergence is reached before 
+                       interpreting the result. There are two ways: (1) to check if the Rhat of other_snsp[max] is 1.1 or less; 
+                       (2) to check Markov Chain Trace Plot for other_snsp[max].", style = "color:gray"),
+                     p("***The model used in this calculator was built in RStan. The code can be found at:", 
+                       span("https://github.com/y-luo06/HSROC_shiny.", style = "color:lightseagreen;font-style:italic"), 
+                       "Due to the model characteristics, the input parameter is allowed only from 0.6 to 1.0.", style = "color:gray")
                    ),
                    mainPanel(
                      tabsetPanel(
