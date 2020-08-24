@@ -43,8 +43,7 @@ ui <- fluidPage(
                    span("hierarchical summary receiver operating characteristic (HSROC) model.", style = "color:lightseagreen"), style = "font-size:19px"),
                    p("HSROC model is a statistical model based on latent scale logistic regression. It considers variability 
                    both within and between studies (for example, different thresholds used in primary studies) [2]. 
-                   Unlike bivariate model, which has an assumption of a common threshold across stuides, HSROC cannot estimate 
-                   a summary point of sensitivity and specificity. Instead, we can present", 
+                   HSROC cannot estimate a summary point of sensitivity and specificity. Instead, we can present", 
                    strong("the estimate of specificity and its 95% credible interval (CrI), if a fixed value of sensitity is given, or vice versa,", style = "color:steelblue"),
                    " to demonstrate the changes in sensitivity and specificity along the curve.", style = "font-size:19px"), 
                  p("We think this result should be included in the Summary of Finding (SoF) table for a meta-analysis of DTA using HSROC model. 
@@ -115,7 +114,7 @@ ui <- fluidPage(
                            strong(" 'Data Confirmation' ", style = "color:steelblue"), style = "font-size:17px"),
                          br(),
                          p("(4) The example dataset looks like this in below. You can also download it. ", style = "font-size:17px"),
-                         div(tableOutput("showexample"), style = "margin-left: 200px"),
+                         div(tableOutput("showexample"), style = "margin-left: 150px"),
                          br(),
                          br()
                        ),
@@ -135,18 +134,28 @@ ui <- fluidPage(
                      br(),
                      radioButtons("parametername", label = "Choose the class of input parameter",
                                   choices = c("Sensitivity", "Specificity"), selected = "Sensitivity"),
-                     textInput("parameter", label = "Input the parameter value", placeholder = "Enter a number between 0.6 to 1"),
+                     textInput("parameter", label = "Input the parameter value", placeholder = "Enter your parameter value"),
                      tags$hr(style="border-color: lightgray;"),
                      strong("Note: ", style = "color:gray"),
                      p("*The ", span("sensitivity or specificity parameter", style = "color:steelblue;font-style:italic"), 
                        " can be selected based on the clinical experience or previous studies. For example, it can be the 
                        average value of the studies included in the meta-analysis.", style = "color:gray"),
-                     p("**We provide the details about the MCMC methods. You should check if convergence is reached before 
+                     withMathJax(),
+                     p("**The HSROC model takes the form [1]: ", 
+                     span("$$logit(sensitivity_i) = (\\theta_i + 0.5\\alpha_i)exp(-0.5\\beta)$$
+                     $$logit(specificity_i) = 1 - (\\theta_i - 0.5\\alpha_i)exp(0.5\\beta)$$", style = "font-size:13px"),
+                      "\\(i\\) refers to the \\(i\\)th study. If we set sensitivity or specificity to 0.5, the left side of the above equation becomes 
+                       0. Since exp is constantly positive, \\(\\beta\\) can be any value, making it a inderminate equation. 
+                       Therefore, if you input a sensitivity or specificity value as 0.5, you may get an error message.", style = "color:gray"),
+                     p("***We provide the details about the MCMC methods. You should check if convergence is reached before 
                        interpreting the result. There are two ways: (1) to check if the Rhat of other_snsp[max] is 1.1 or less; 
                        (2) to check Markov Chain Trace Plot for other_snsp[max].", style = "color:gray"),
-                     p("***The model used in this calculator was built in RStan. The code can be found at:", 
+                     p("****The model used in this calculator was built in RStan. The code can be found at:", 
                        span("https://github.com/y-luo06/HSROC_shiny.", style = "color:lightseagreen;font-style:italic"), 
-                       "Due to the model characteristics, the input parameter is allowed only from 0.6 to 1.0.", style = "color:gray")
+                       style = "color:gray"),
+                     tags$hr(style="border-color: lightgray;"),
+                     p("[1] Macaskill P, Gatsonis C, Deeks J, Harbord R, Takwoingi Y. Cochrane handbook for systematic reviews 
+                       of diagnostic test accuracy. The Cochrane Collaboration 2010.", style = "font-size: 14px; color: grey")
                    ),
                    mainPanel(
                      tabsetPanel(
@@ -154,7 +163,7 @@ ui <- fluidPage(
                          fluidRow(
                            h4("Estimation"),
                            br(),
-                           textOutput("estimation"),
+                           uiOutput("estimation"),
                            br(),
                            br(),
                            tags$hr(style="border-color: lightgray;"), 
@@ -265,7 +274,7 @@ server <- function(input, output, session) {
   
   fit <- reactive({
     parameter <- as.numeric(input$parameter)
-    req(input$file, input$parameter, parameter >= 0.6 & parameter <1)
+    req(input$file, input$parameter, parameter > 0 & parameter <1 & parameter != 0.5)
     datalist <- list(
       N = nrow(file_reshape()),
       I = length(unique(file_reshape()$study)),
@@ -308,22 +317,33 @@ server <- function(input, output, session) {
     stan_trace(fit(), pars = "other_snsp")
   })
   
-  output$estimation <- renderText({
+  output$estimation <- renderUI({
     parameter <- as.numeric(input$parameter)
-    validate(
-      need(input$file, "Please make sure to upload a dataset with required format."),
-      need(parameter >= 0.6 & parameter <= 1, "Please make sure to input a correct parameter value between 0.6 to 1.")
+      validate(
+        need(input$file, "Please make sure to upload a dataset with required format."),
+        need(parameter >= 0 & parameter <= 1, "Please make sure to input a correct parameter value between 0 to 1.")
     )
-    if (input$parametername == "Sensitivity") {
-      paste("The estimated specificity is ", round(mean(other_snsp_global()$prob), digits = 3),
-            ", with a 95% credible interval from ",
-            format(round(hdi(other_snsp_global()$prob)[[1]], digits = 3), nsmall = 3), " to ", 
-            format(round(hdi(other_snsp_global()$prob)[[2]], digits = 3), nsmall = 3), ".")
-    } else {
-      paste("The estimated sensitivity is ", round(mean(other_snsp_global()$prob), digits = 3), 
-            ", with a 95% credible interval from ",
-            format(round(hdi(other_snsp_global()$prob)[[1]], digits = 3), nsmall = 3), " to ", 
-            format(round(hdi(other_snsp_global()$prob)[[2]], digits = 3), nsmall = 3), ".")
+     if (parameter == 0.5) {
+        withMathJax(
+          helpText("Please input a parameter value other than 0.5.",
+                   "This is because HSROC model takes the form [1]: 
+                    $$logit(sensitivity_i) = (\\theta_i + 0.5\\alpha_i)exp(-0.5\\beta)$$
+                    $$logit(specificity_i) = 1 - (\\theta_i - 0.5\\alpha_i)exp(0.5\\beta)$$
+                    \\(i\\) refers to the \\(i\\)th study. If we set sensitivity or specificity to 0.5, the left side of the above equation becomes 
+                    0. Since exp is constantly positive, \\(\\beta\\) can be any value, making it a inderminate equation. 
+                    Therefore, please input a value other than 0.5."))
+     } else {
+     if (input$parametername == "Sensitivity") {
+       paste("The estimated specificity is ", round(mean(other_snsp_global()$prob), digits = 3),
+             ", with a 95% credible interval from ",
+             format(round(hdi(other_snsp_global()$prob)[[1]], digits = 3), nsmall = 3), " to ", 
+             format(round(hdi(other_snsp_global()$prob)[[2]], digits = 3), nsmall = 3), ".")
+      } else {
+        paste("The estimated sensitivity is ", round(mean(other_snsp_global()$prob), digits = 3), 
+              ", with a 95% credible interval from ",
+              format(round(hdi(other_snsp_global()$prob)[[1]], digits = 3), nsmall = 3), " to ", 
+              format(round(hdi(other_snsp_global()$prob)[[2]], digits = 3), nsmall = 3), ".")
+      }
     }
   })
   
@@ -365,4 +385,6 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
+
+
 
