@@ -237,8 +237,8 @@ server <- function(input, output, session) {
     read.csv(input$file$datapath,
              header = input$header,
              sep = input$sep)
-  })
-  
+  }）
+
   file_reshape <- reactive({
     df.tmp <- read.csv(input$file$datapath,
                        header = input$header,
@@ -262,7 +262,6 @@ server <- function(input, output, session) {
     return(head(df, 6))
   })
   
-  
   output$dataconfirm <- renderTable(bordered = TRUE, striped = TRUE, {
     req(input$file)
     if (input$display == "head") {
@@ -284,6 +283,7 @@ server <- function(input, output, session) {
       nn = file_reshape()$nn,
       one_snsp = parameter
     )
+    
     model <- stan_model("HSROC.stan")
     set.seed(1234)
     fit <- sampling(model, 
